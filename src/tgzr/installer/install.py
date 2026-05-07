@@ -5,14 +5,24 @@ import os
 from pathlib import Path
 import tempfile
 import platform
+import subprocess
 
 import uv
 
 
-def execute(cmd, echo, raises: bool = False, exits: bool = True) -> bool:
-    print(f"EXEC: {cmd}")
-    echo(f"EXEC: {cmd}")
-    ret = os.system(cmd)
+def execute(cmd: list[str], echo, raises: bool = False, exits: bool = True) -> bool:
+    cmd_str = " ".join(cmd)
+    print(f"EXEC: {cmd_str}")
+    echo(f"EXEC: {cmd_str}")
+    # ret = os.system(cmd)
+    try:
+        ret = subprocess.check_call(cmd)
+    except Exception as err:
+        if raises:
+            raise
+        else:
+            echo(f"!ERROR! Cmd exception 😬: {err}")
+            return False
     if ret:
         if raises:
             raise ChildProcessError(f"Error creating venv with cmd: {cmd}")
@@ -27,7 +37,7 @@ def create_temp_venv(
     find_links: str | None,
     allow_prerelease: bool,
     no_cache: bool,
-    requirements: str,
+    requirements: list[str],
     echo,
 ) -> str | None:
 
@@ -74,7 +84,15 @@ def create_temp_venv(
     venv_path = tempfile.mkdtemp(prefix="tgzr_install_tmp_venv")
     echo(f"Creating temp venv: {venv_path}")
 
-    cmd = f"{uv_exe} venv -p {python_version} --prompt TGZR-Installer {venv_path}"
+    cmd = [
+        uv_exe,
+        "venv",
+        "-p",
+        python_version,
+        "--prompt",
+        "TGZR-Installer",
+        venv_path,
+    ]
     if not execute(cmd, echo):
         return None
 
@@ -82,27 +100,40 @@ def create_temp_venv(
     # Install requirements
     #
 
-    default_index_options = ""
+    default_index_options = []
     if default_index:
         # default_index_options = f"--default-index {default_index} --index https://pypi.org/simple  --index-strategy unsafe-best-match"
-        default_index_options = f"--index {default_index}"
+        default_index_options = ["--index", default_index]
 
-    find_links_options = ""
+    find_links_options = []
     if find_links:
-        find_links_options = f"--find-links {find_links}"
+        find_links_options = ["--find-links", find_links]
 
-    prerelease_options = ""
+    prerelease_options = []
     if allow_prerelease:
         # We are automatically disabling cache when using pre-releases
         # because cache f*cks my brain.
         # If too anoying, we'll add a separate option like '--use-case-with-prerelease'
-        prerelease_options = "--prerelease=allow"
+        prerelease_options = ["--prerelease=allow"]
 
-    no_cache_options = ""
+    no_cache_options = []
     if no_cache:
-        no_cache_options = "--no-cache"
+        no_cache_options = ["--no-cache"]
 
-    cmd = f"{uv_exe} pip install {default_index_options} {find_links_options} {no_cache_options} {prerelease_options} --python {venv_path} {requirements}"
+    # cmd = f"{uv_exe} pip install {default_index_options} {find_links_options} {no_cache_options} {prerelease_options} --python {venv_path} {requirements}"
+    cmd = [
+        uv_exe,
+        "pip",
+        "install",
+        *default_index_options,
+        *find_links_options,
+        *no_cache_options,
+        *prerelease_options,
+        "--python",
+        venv_path,
+        *requirements,
+    ]
+
     if not execute(cmd, echo):
         return None
 
@@ -128,35 +159,36 @@ def create_home_folder(
 
     more_options = []
     if python_version:
-        more_options.append(
-            f"--python-version {python_version!r}",
-        )
+        more_options.extend([f"--python-version", python_version])
     if default_index:
-        more_options.append(
-            f"--default-index {default_index!r}",
-        )
+        more_options.extend([f"--default-index", default_index])
     if find_links:
-        more_options.append(
-            f"--find-links {find_links!r}",
+        more_options.extend(
+            [
+                f"--find-links",
+                find_links,
+            ]
         )
     if allow_prerelease:
-        more_options.append("--allow-prerelease")
+        more_options.extend(["--allow-prerelease"])
 
     if no_cache:
-        more_options.append("--no-cache")
+        more_options.extend(["--no-cache"])
 
     if userid:
-        more_options.append(f"--userid {userid!r}")
+        more_options.extend([f"--userid", userid])
 
     cmd = [
         tgzr_exe,
         "session create",
-        f"--home {str(home_path)!r}",
-        f"--connection {connection_url!r}",
+        "--home",
+        str(home_path),
+        "--connection",
+        connection_url,
         *more_options,
     ]
 
-    if not execute(" ".join(cmd), echo):
+    if not execute(cmd, echo):
         echo("Could not create home folder :/")
         return
 
@@ -174,6 +206,8 @@ def gui_install(
     exists_ok: bool = False,
     echo: Callable[[str], None] | None = None,
 ):
+    if home is not None:
+        home = str(Path(home).resolve())
     echo = echo or print
     echo("- GUI INSTALL -")
 
@@ -194,7 +228,7 @@ def gui_install(
         find_links=find_links,
         allow_prerelease=allow_prerelease,
         no_cache=no_cache,
-        requirements="tgzr.session tgzr.cli tgzr.apps.installer",
+        requirements=["tgzr.session", "tgzr.cli", "tgzr.apps.installer"],
         echo=echo,
     )
     if venv_path is None:
@@ -208,33 +242,36 @@ def gui_install(
 
     more_options = []
     if python_version is not None:
-        more_options.append(
-            f"--python-version {python_version}",
+        more_options.extend(
+            ["--python-version", python_version],
         )
     if default_index is not None:
-        more_options.append(
-            f"--default-index {default_index}",
+        more_options.extend(
+            ["--default-index", default_index],
         )
     if find_links is not None:
-        more_options.append(
-            f"--find-links {find_links}",
+        more_options.extend(
+            ["--find-links", find_links],
         )
     if allow_prerelease:
-        more_options.append("--allow-prerelease")
+        more_options.extend(["--allow-prerelease"])
     if no_cache:
-        more_options.append("--no-cache")
+        more_options.extend(["--no-cache"])
     if userid is not None:
-        more_options.append(f"--userid {userid}")
+        more_options.extend(["--userid", userid])
 
     cmd = [
         tgzr_exe,
-        "app gui_install",
-        f"--home {home or str(Path.cwd())}",
-        f"--connection {connection_url}",
+        "app",
+        "gui_install",
+        "--home",
+        home or str(Path.cwd()),
+        "--connection",
+        connection_url,
         *more_options,
     ]
 
-    if not execute(" ".join(cmd), echo):
+    if not execute(cmd, echo):
         echo("Could not launch GUI installer")
         return
 
@@ -288,7 +325,7 @@ def headless_install(
         find_links=find_links,
         allow_prerelease=allow_prerelease,
         no_cache=no_cache,
-        requirements="tgzr.session tgzr.cli",
+        requirements=["tgzr.session", "tgzr.cli"],
         echo=echo,
     )
     if venv_path is None:
