@@ -180,7 +180,8 @@ def create_home_folder(
 
     cmd = [
         tgzr_exe,
-        "session create",
+        "session",
+        "create",
         "--home",
         str(home_path),
         "--connection",
