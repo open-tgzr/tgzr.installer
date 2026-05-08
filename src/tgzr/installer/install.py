@@ -157,6 +157,9 @@ def create_home_folder(
     else:
         tgzr_exe = f"{venv_path}/bin/tgzr"
 
+    # Be sure to not install relative to the temps venv:
+    home_path = home_path.resolve()
+
     more_options = []
     if python_version:
         more_options.extend([f"--python-version", python_version])
