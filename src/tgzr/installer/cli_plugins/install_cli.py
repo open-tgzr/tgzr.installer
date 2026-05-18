@@ -23,8 +23,14 @@ from ..install import gui_install, headless_install
 @click.option(
     "-p",
     "--python-version",
-    default="3.12",
+    default=None,
     help="The python version to use. Defaults to 3.12 which in the minimum (3.14 is known to cause issue with nicegui on windows for now)",
+)
+@click.option(
+    "-a",
+    "--additional-packages",
+    multiple=True,
+    help="List of extra packages to install. Use multiple times if needed.",
 )
 @click.option(
     "--default-index",
@@ -75,6 +81,7 @@ def install_cmd(
     connection: str | None,
     userid: str | None,
     python_version: str | None,
+    additional_packages: list[str] = [],
     default_index: str | None = None,
     find_links: str | None = None,
     allow_prerelease: bool = False,
@@ -114,6 +121,7 @@ def install_cmd(
             connection_url=connection,
             userid=userid,
             python_version=python_version,
+            additional_packages=additional_packages,
             default_index=default_index,
             find_links=find_links,
             allow_prerelease=allow_prerelease,
@@ -137,6 +145,7 @@ def install_cmd(
             connection_url=connection,
             userid=userid,
             python_version=python_version,
+            additional_packages=additional_packages,
             default_index=default_index,
             find_links=find_links,
             allow_prerelease=allow_prerelease,
@@ -199,7 +208,11 @@ Happy installing! ✨
 
 ### Advanced Options
 
-During installation, tgzr will fetch packages from PyPI.
+If you want to have more than the default packages installed, you can
+specify them with the -a / --additional-packages flag (use it as many
+times as needed).
+
+During installation, tgzr will fetch packages from the default package index.
 
 If you need to use custom packages instead of official ones, 
 you can override the default package index with 
